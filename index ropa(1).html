@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clothing Discord</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Se añade la librería Three.js para la animación de partículas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link rel="icon" href="https://i.imgur.com/HUhIujV.jpeg" type="image/jpeg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827; /* Fondo oscuro base */
+        }
+
+        /* --- Ocultar la barra de scroll pero mantener funcionalidad --- */
+        /* Para Firefox */
+        html {
+            scrollbar-width: none;
+        }
+
+        /* Para IE y Edge */
+        body {
+            -ms-overflow-style: none;
+        }
+
+        /* Para Chrome, Safari y Opera */
+        body::-webkit-scrollbar {
+            display: none;
+        }
+        
+        /* Contenedor para la animación de fondo */
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        /* Estilo para el efecto de "Glassmorphism" en el panel principal */
+        .glassmorphism {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        /* Estilos para transiciones suaves */
+        #notification, .preview-item {
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+        }
+
+        /* Ocultar el input de archivo por defecto */
+        #fileUpload {
+            display: none;
+        }
+
+        /* Prevenir la selección y el arrastre de imágenes no deseadas */
+        img, video {
+            -webkit-user-select: none; /* Safari */
+            -ms-user-select: none; /* IE 10+ */
+            user-select: none; /* Sintaxis estándar */
+        }
+        
+        /* Estilo para el texto truncado en vistas previas */
+        .truncate-text {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    </style>
+</head>
+<body class="text-gray-200">
+    <!-- Canvas para la animación de fondo -->
+    <canvas id="bg-canvas"></canvas>
+
+    <!-- MEJORA: Se añade flex-col para apilar el panel y el pie de página -->
+    <div class="relative flex flex-col items-center justify-center min-h-screen p-4">
+        <div class="w-full max-w-lg mx-auto my-2">
+            <div class="glassmorphism rounded-2xl shadow-2xl p-6 sm:p-8">
+                <div class="flex flex-col items-center text-center mb-8">
+                    <img id="sendUploadButton" src="https://i.imgur.com/bqjvzGf.png" alt="Enviar como Subido" title="Enviar como Subido" class="w-28 h-28 rounded-full mb-4 border-2 border-gray-400/50 shadow-lg object-cover cursor-pointer hover:scale-110 hover:shadow-cyan-400/30 transition-all duration-300">
+                    <h1 class="text-4xl font-extrabold text-white">Clothing Bot</h1>
+                    <p class="text-gray-400 mt-2">Envía prendas directamente a tu canal de Discord.</p>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="message" class="sr-only">Mensaje</label>
+                    <textarea 
+                        id="message" 
+                        rows="4" 
+                        class="w-full p-3 bg-gray-900/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 focus:outline-none text-gray-200 placeholder-gray-500 resize-none transition-colors"
+                        placeholder="Describe la prenda o pega un enlace de Roblox..."
+                    ></textarea>
+                </div>
+
+                <div class="mb-4">
+                    <label for="fileUpload" class="w-full cursor-pointer bg-gray-900/50 border-2 border-dashed border-gray-600 hover:border-cyan-400 hover:bg-gray-800/60 text-gray-400 hover:text-white font-semibold py-4 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-400 transition-all duration-300 flex flex-col items-center justify-center text-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8 mb-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                        <span>Arrastra o selecciona tus archivos</span>
+                    </label>
+                    <input type="file" id="fileUpload" accept="image/*,video/*,audio/*" multiple>
+                </div>
+
+                <!-- Contenedor para múltiples vistas previas -->
+                <div id="previewContainer" class="mb-2 hidden flex flex-wrap gap-4 justify-center">
+                    <!-- Las vistas previas se insertarán aquí -->
+                </div>
+                
+                <!-- Indicador de tamaño total -->
+                <div id="sizeIndicator" class="hidden text-sm text-gray-400 text-right mb-4"></div>
+                
+                <!-- Botones de envío -->
+                <div class="space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <button id="sendShirtButton" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center shadow-lg hover:shadow-cyan-400/40 transform hover:-translate-y-1">
+                            <svg class="mr-2" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M9 3H15L16 4L20 5V9L18 10H6L4 9V5L8 4L9 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M6 10L7 21H17L18 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <span class="button-text">Enviar Camisa</span>
+                        </button>
+                        <button id="sendPantsButton" class="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center shadow-lg hover:shadow-fuchsia-400/40 transform hover:-translate-y-1">
+                             <svg class="mr-2" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M8 4H16L17 10H7L8 4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M7 10L6 20H11V10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M17 10L18 20H13V10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <span class="button-text">Enviar Pantalón</span>
+                        </button>
+                    </div>
+                </div>
+
+                 <div id="loadingIndicator" class="hidden mt-6 flex items-center justify-center text-gray-300">
+                    <svg class="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Enviando a Discord...</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- MEJORA: Pie de página añadido -->
+        <footer class="w-full text-center py-4">
+            <a href="https://imdeadmizxk.github.io/Portafolio/" target="_blank" class="text-gray-500 hover:text-cyan-400 transition-colors text-sm">Made By SilentExe</a>
+        </footer>
+    </div>
+    
+    <!-- MEJORA: Notificación movida fuera del contenedor flex para un posicionamiento correcto -->
+    <div id="notification" class="fixed bottom-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg opacity-0 transform translate-y-2"></div>
+
+    <script>
+        // --- Lógica de la aplicación existente (sin cambios) ---
+        const messageTextarea = document.getElementById('message');
+        const fileUpload = document.getElementById('fileUpload');
+        const previewContainer = document.getElementById('previewContainer');
+        const sizeIndicator = document.getElementById('sizeIndicator');
+        const sendShirtButton = document.getElementById('sendShirtButton');
+        const sendPantsButton = document.getElementById('sendPantsButton');
+        const sendUploadButton = document.getElementById('sendUploadButton');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const notification = document.getElementById('notification');
+        
+        document.addEventListener('contextmenu', event => event.preventDefault());
+        document.addEventListener('dragstart', event => event.preventDefault());
+        
+        const shirtWebhookURL = 'https://discord.com/api/webhooks/1388698371820228690/P4dtICtH2_ILwQInmem_HJJdXNQQzaTurLNlZP1MdAqAiM7xkEnjffLW3Fx4RRR5dIjY';
+        const pantsWebhookURL = 'https://discord.com/api/webhooks/1388698694651740260/6VtaS8YfMH6dg7GxQXDbQqzh7yjfTEkWOvWz6LIIBoqBR6hdsuz8b0-7g_e4cN-IJ7me';
+        const uploadWebhookURL = 'https://discord.com/api/webhooks/1388698196829802638/7A7Q5vl8fvKAgV7osjJCmElR71X9uKQPrLwq90v5_ayY7ct-Kf8JsnPlacdlGWhFR_35';
+        const botUsername = 'Clothing Bot';
+        const botAvatarUrl = 'https://i.imgur.com/y5WqBp1.jpeg';
+
+        let isSending = false;
+        let selectedFiles = []; 
+        let currentTotalSize = 0;
+        const MAX_TOTAL_SIZE = 10 * 1024 * 1024; // 10 MB
+
+        function handleFiles(files) {
+            const newFiles = Array.from(files);
+            for (const file of newFiles) {
+                if (selectedFiles.length >= 10) {
+                    showNotification('Puedes subir un máximo de 10 archivos.', true);
+                    break;
+                }
+                if (currentTotalSize + file.size > MAX_TOTAL_SIZE) {
+                    const fileName = file.name.length > 20 ? file.name.substring(0, 17) + '...' : file.name;
+                    showNotification(`No se puede añadir "${fileName}". Supera el límite de 10 MB.`, true);
+                    continue;
+                }
+                selectedFiles.push({ id: Date.now() + Math.random(), file: file });
+                currentTotalSize += file.size;
+            }
+            renderPreviews();
+        }
+
+        document.addEventListener('paste', function(event) {
+            const pastedFiles = event.clipboardData.files;
+            if (pastedFiles && pastedFiles.length > 0) {
+                event.preventDefault();
+                handleFiles(pastedFiles);
+            }
+        });
+        
+        fileUpload.addEventListener('change', function(event) {
+            handleFiles(event.target.files);
+            event.target.value = '';
+        });
+
+        function renderPreviews() {
+            previewContainer.innerHTML = ''; 
+            if (selectedFiles.length > 0) {
+                previewContainer.classList.remove('hidden');
+                sizeIndicator.classList.remove('hidden');
+            } else {
+                previewContainer.classList.add('hidden');
+                sizeIndicator.classList.add('hidden');
+            }
+            const totalMB = (currentTotalSize / (1024 * 1024)).toFixed(2);
+            const maxMB = (MAX_TOTAL_SIZE / (1024 * 1024)).toFixed(0);
+            sizeIndicator.textContent = `Tamaño total: ${totalMB} MB / ${maxMB} MB`;
+            sizeIndicator.classList.toggle('text-red-500', currentTotalSize > MAX_TOTAL_SIZE);
+
+            selectedFiles.forEach(fileWrapper => {
+                const previewWrapper = document.createElement('div');
+                previewWrapper.id = `preview-${fileWrapper.id}`;
+                previewWrapper.className = 'preview-item relative w-24 h-24 flex items-center justify-center bg-gray-900/50 rounded-lg border border-gray-700 overflow-hidden shadow-md';
+                previewContainer.appendChild(previewWrapper);
+            });
+
+            selectedFiles.forEach(fileWrapper => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const targetWrapper = document.getElementById(`preview-${fileWrapper.id}`);
+                    if (!targetWrapper) return;
+                    const file = fileWrapper.file;
+                    const objectURL = e.target.result;
+                    let mediaElement, iconHTML = '';
+
+                    if (file.type.startsWith('image/')) {
+                        mediaElement = document.createElement('img');
+                        mediaElement.className = 'w-full h-full object-cover';
+                    } else if (file.type.startsWith('video/')) {
+                        mediaElement = document.createElement('video');
+                        mediaElement.className = 'w-full h-full object-cover bg-black';
+                        mediaElement.autoplay = true; mediaElement.muted = true; mediaElement.loop = true; mediaElement.playsInline = true;
+                    } else if (file.type.startsWith('audio/')) {
+                        iconHTML = `<div class="flex flex-col items-center justify-center text-gray-400 p-1 text-center"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8 mb-1"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><span class="text-xs truncate-text w-full">${file.name}</span></div>`;
+                    } else {
+                        iconHTML = `<div class="flex flex-col items-center justify-center text-gray-400 p-1 text-center"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8 mb-1"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg><span class="text-xs truncate-text w-full">${file.name}</span></div>`;
+                    }
+                    if (iconHTML) targetWrapper.innerHTML = iconHTML;
+                    if (mediaElement) { mediaElement.src = objectURL; targetWrapper.appendChild(mediaElement); }
+                    const removeBtn = document.createElement('button');
+                    removeBtn.innerHTML = '&times;';
+                    removeBtn.title = 'Quitar archivo';
+                    removeBtn.className = 'absolute top-1 right-1 bg-black/60 text-white rounded-full h-6 w-6 flex items-center justify-center font-bold text-lg hover:bg-red-500/80 transition-colors z-10';
+                    removeBtn.onclick = () => removeFile(fileWrapper.id);
+                    targetWrapper.appendChild(removeBtn);
+                }
+                reader.readAsDataURL(fileWrapper.file);
+            });
+        }
+        
+        function removeFile(id) {
+            const fileIndex = selectedFiles.findIndex(wrapper => wrapper.id === id);
+            if (fileIndex > -1) {
+                currentTotalSize -= selectedFiles[fileIndex].file.size;
+                selectedFiles.splice(fileIndex, 1);
+                renderPreviews();
+            }
+        }
+
+        function clearAllFiles() {
+            selectedFiles = []; currentTotalSize = 0; fileUpload.value = ''; renderPreviews();
+        }
+
+        sendShirtButton.addEventListener('click', () => sendMessage('CAMISA'));
+        sendPantsButton.addEventListener('click', () => sendMessage('PANTALON'));
+        sendUploadButton.addEventListener('click', () => sendMessage('SUBIDO')); 
+
+        async function sendMessage(tag) {
+            if (isSending) return;
+            const originalMessage = messageTextarea.value.trim();
+            if (!originalMessage && selectedFiles.length === 0) {
+                showNotification('Debes escribir un mensaje o subir al menos un archivo.', true);
+                return;
+            }
+            if (currentTotalSize > MAX_TOTAL_SIZE) {
+                showNotification('El tamaño de los archivos supera los 10 MB.', true);
+                return;
+            }
+            setLoading(true);
+            let processedMessage = originalMessage;
+            const robloxUrlRegex = /(https?:\/\/www\.roblox\.com\/catalog\/\d+)/;
+            const match = originalMessage.match(robloxUrlRegex);
+            if (match && match[0]) { processedMessage = `<${match[0]}>`; }
+            let targetWebhookURL, finalTag;
+            if (tag === 'CAMISA') { targetWebhookURL = shirtWebhookURL; finalTag = '> ## **Camisa** [ 👕 ]'; } 
+            else if (tag === 'PANTALON') { targetWebhookURL = pantsWebhookURL; finalTag = '> ## **Pantalon** [ 👖 ]'; } 
+            else if (tag === 'SUBIDO') { targetWebhookURL = uploadWebhookURL; finalTag = '> ## **Subido** [ 📤 ]'; }
+            let messagePart = processedMessage ? ` ${processedMessage}` : '';
+            let finalContent = `${finalTag}${messagePart}`;
+            if (selectedFiles.length > 0 && !processedMessage) { finalContent += "\n\u200b"; }
+            const formData = new FormData();
+            formData.append('payload_json', JSON.stringify({ content: finalContent, username: botUsername, avatar_url: botAvatarUrl }));
+            selectedFiles.forEach((fw, i) => formData.append(`file${i}`, fw.file));
+            try {
+                const response = await fetch(targetWebhookURL, { method: 'POST', body: formData });
+                if (response.ok) {
+                    showNotification('¡Enviado con éxito!'); messageTextarea.value = ''; clearAllFiles();
+                } else {
+                    const errorData = await response.json();
+                    console.error('Discord Error:', errorData);
+                    showNotification(`Error: ${response.status}. ${errorData.message || ''}`, true);
+                }
+            } catch (error) {
+                console.error('Network Error:', error);
+                showNotification('Error de conexión. Revisa la consola.', true);
+            } finally { setLoading(false); }
+        }
+        
+        function setLoading(isLoading) {
+            isSending = isLoading;
+            loadingIndicator.classList.toggle('hidden', !isLoading);
+            [sendShirtButton, sendPantsButton, sendUploadButton].forEach(btn => {
+                btn.disabled = isLoading;
+                btn.classList.toggle('opacity-50', isLoading);
+                btn.classList.toggle('pointer-events-none', isLoading);
+            });
+        }
+
+        function showNotification(message, isError = false) {
+            notification.textContent = message;
+            notification.className = `fixed bottom-5 right-5 text-white py-3 px-5 rounded-lg shadow-2xl opacity-0 transform translate-y-2 transition-all duration-300 ${isError ? 'bg-red-600' : 'bg-green-500'}`;
+            setTimeout(() => { notification.classList.remove('opacity-0', 'translate-y-2'); notification.classList.add('opacity-100', 'translate-y-0'); }, 10);
+            setTimeout(() => { notification.classList.remove('opacity-100', 'translate-y-0'); notification.classList.add('opacity-0', 'translate-y-2'); }, 4000);
+        }
+
+        // --- Script para la animación de fondo con Three.js (Modificado) ---
+        let scene, camera, renderer, particles; // Se eliminaron las variables del mouse
+
+        function init() {
+            // Escena
+            scene = new THREE.Scene();
+
+            // Cámara
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 10000);
+            camera.position.z = 1000;
+
+            // Renderer
+            const canvas = document.getElementById('bg-canvas');
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x000000, 0); // Fondo transparente
+
+            // Partículas
+            const particleCount = 2000;
+            const particlesGeometry = new THREE.BufferGeometry();
+            const posArray = new Float32Array(particleCount * 3);
+
+            for (let i = 0; i < particleCount * 3; i++) {
+                posArray[i] = (Math.random() - 0.5) * 2000;
+            }
+            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            
+            const particleMaterial = new THREE.PointsMaterial({
+                size: 2,
+                color: 0x67e8f9, // Color cian de las partículas
+                transparent: true,
+                opacity: 0.6,
+                blending: THREE.AdditiveBlending
+            });
+
+            particles = new THREE.Points(particlesGeometry, particleMaterial);
+            scene.add(particles);
+
+            // Event Listeners
+            // Se eliminó el listener del mouse 'mousemove'
+            window.addEventListener('resize', onWindowResize, false);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            render();
+        }
+
+        function render() {
+            // El tiempo se usa para la rotación automática
+            const time = Date.now() * 0.00005;
+            
+            // Se eliminó el código que movía la cámara con el mouse.
+            // Ahora la cámara está estática y solo las partículas giran.
+            
+            particles.rotation.x = time * 0.5;
+            particles.rotation.y = time * 0.4;
+            
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            // Se eliminó la actualización de windowHalfX y windowHalfY
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // Se eliminó por completo la función onDocumentMouseMove
+        
+        // Iniciar la animación
+        init();
+        animate();
+    </script>
+</body>
+</html>
