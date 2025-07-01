@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TE AMO MIAU BEBITA</title>
+    <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
+    <style>
+        /* Basic styles to set up the scene */
+        body, html {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background-color: #000000; /* Black background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden; /* Hide scrollbars */
+            /* Disable text selection and dragging */
+            user-select: none;
+            -webkit-user-select: none; /* Safari */
+            -moz-user-select: none; /* Firefox */
+            -ms-user-select: none; /* IE 10+ */
+            -webkit-user-drag: none; /* Safari */
+        }
+
+        /* Overlay for user interaction to start audio */
+        #enter-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            cursor: pointer;
+            transition: opacity 0.8s ease-out;
+            opacity: 1;
+        }
+
+        .enter-text {
+            font-family: 'Pacifico', cursive;
+            font-size: 8vw;
+            color: #ff85c2;
+            text-align: center;
+            animation: pulse-and-glow 2.5s ease-in-out infinite;
+        }
+
+        /* The container for our animated text */
+        .container {
+            text-align: center;
+        }
+
+        /* Styling for the text with performance improvements */
+        .love-text {
+            font-family: 'Pacifico', cursive;
+            font-size: 8vw;
+            color: #ff85c2;
+            /* Animation properties */
+            animation: pulse-and-glow 2.5s ease-in-out infinite;
+            /* Optimized text-shadow for better mobile performance */
+            text-shadow:
+                0 0 5px #ff85c2,
+                0 0 10px #ff85c2,
+                0 0 20px #ff85c2,
+                0 0 35px #ff007f,
+                0 0 70px #ff007f;
+            /* Hardware acceleration hint for smoother animations */
+            -webkit-backface-visibility: hidden;
+            -moz-backface-visibility: hidden;
+            backface-visibility: hidden;
+            -webkit-transform: translate3d(0, 0, 0);
+            -moz-transform: translate3d(0, 0, 0);
+            transform: translate3d(0, 0, 0);
+        }
+
+        /* Keyframes define the animation steps */
+        @keyframes pulse-and-glow {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 0.8;
+            }
+            50% {
+                transform: scale(1.05);
+                opacity: 1;
+            }
+        }
+
+        /* Adjustments for smaller screens like mobile phones */
+        @media (max-width: 768px) {
+            .love-text, .enter-text {
+                font-size: 14vw;
+            }
+            .container {
+                padding: 0 1rem; 
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Overlay to trigger audio on user interaction -->
+    <div id="enter-overlay">
+        <div class="enter-text">Toca para entrar</div>
+    </div>
+
+    <div class="container">
+        <h1 class="love-text">
+            TE AMO MIAU BEBITA
+        </h1>
+    </div>
+
+    <!-- Audio element for background music -->
+    <audio id="background-music" src="https://res.cloudinary.com/ddpx3ebw2/video/upload/v1751407114/cosa_dc3cmz.mp3" loop></audio>
+
+    <script>
+        // --- SCRIPT FOR AUDIO AND INTERACTION ---
+        const overlay = document.getElementById('enter-overlay');
+        const audio = document.getElementById('background-music');
+
+        // Function to start the experience
+        function startExperience() {
+            // Fade out the overlay
+            overlay.style.opacity = '0';
+            // Play audio
+            audio.play().catch(error => {
+                // Catch any errors if play() is interrupted or fails
+                console.log("Audio playback failed:", error);
+            });
+            // After fading out, remove the overlay so it can't be clicked again
+            setTimeout(() => {
+                overlay.style.display = 'none';
+            }, 800); // Match this to the transition duration in CSS
+        }
+
+        // Add event listener for both touch and click
+        overlay.addEventListener('click', startExperience);
+        overlay.addEventListener('touchend', startExperience);
+
+        // --- SCRIPT TO PREVENT RIGHT-CLICK AND DRAGGING ---
+        document.addEventListener('contextmenu', event => event.preventDefault());
+        document.addEventListener('dragstart', event => event.preventDefault());
+    </script>
+
+</body>
+</html>
